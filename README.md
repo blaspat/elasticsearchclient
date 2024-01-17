@@ -37,7 +37,10 @@ Add the properties below to your application properties file
 * `host`: your Elasticsearch hosts with port. You can add multiple hosts, separated by comma
 * `username`: your Elasticsearch username
 * `password`: your Elasticsearch password
-  
+
+## Usage
+[Elasticsearch Demo Spring Boot](https://github.com/blaspat/elasticsearch-demo)
+
 ## Notes
 * For now, this library will skip Elasticsearch certificate verification
 
