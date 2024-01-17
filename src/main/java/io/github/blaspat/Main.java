@@ -1,4 +1,4 @@
-package org.blaspat;
+package io.github.blaspat;
 
 import org.springframework.context.annotation.ComponentScan;
 

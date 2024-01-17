@@ -1,4 +1,4 @@
-package org.blaspat.constant;
+package io.github.blaspat.constant;
 
 
 public class ElasticsearchConstant {

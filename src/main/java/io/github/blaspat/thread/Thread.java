@@ -1,8 +1,8 @@
-package org.blaspat.thread;
+package io.github.blaspat.thread;
 
-import org.blaspat.config.ElasticsearchClientConfig;
-import org.blaspat.config.ElasticsearchProperties;
-import org.blaspat.global.ClientStatus;
+import io.github.blaspat.config.ElasticsearchProperties;
+import io.github.blaspat.config.ElasticsearchClientConfig;
+import io.github.blaspat.global.ClientStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.EnableScheduling;

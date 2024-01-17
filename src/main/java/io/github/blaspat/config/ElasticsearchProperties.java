@@ -1,4 +1,4 @@
-package org.blaspat.config;
+package io.github.blaspat.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;

@@ -1,6 +1,6 @@
-package org.blaspat.handler;
+package io.github.blaspat.handler;
 
-import org.blaspat.global.ClientStatus;
+import io.github.blaspat.global.ClientStatus;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;

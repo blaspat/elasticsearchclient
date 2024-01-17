@@ -1,4 +1,4 @@
-package org.blaspat.global;
+package io.github.blaspat.global;
 
 
 import java.util.concurrent.atomic.AtomicBoolean;
