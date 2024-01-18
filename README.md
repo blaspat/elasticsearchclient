@@ -4,8 +4,13 @@ Elasticsearch Simple Java Client
 ## Overview
 This library provide easier way to config Elasticsearch Java API Client. It features automatically connection checking with auto re-create connection if connection is closed due to some error.
 
-Support Java 8 and using [Elasticsearch Java API Client 8.11](https://www.elastic.co/guide/en/elasticsearch/client/java-api-client/8.11/index.html)
+Support Java 8 or later and using [Elasticsearch Java API Client 8.11](https://www.elastic.co/guide/en/elasticsearch/client/java-api-client/8.11/index.html)
 
+## Updates
+* **1.0.1**
+  * Change how to use client by extending **ElasticsearchSimpleClient** class. Then you can use Elasticsearch client by using _**client()**_ syntax 
+* **1.0.0**
+  * Initial release
 
 
 ## Maven
@@ -13,7 +18,7 @@ Support Java 8 and using [Elasticsearch Java API Client 8.11](https://www.elasti
     <dependency>
         <groupId>io.github.blaspat</groupId>
         <artifactId>elasticsearchclient</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
     </dependency>
     <!-- optional, only if your application fails with ClassNotFoundException: jakarta.json.spi.JsonProvider. -->
     <dependency>

@@ -16,7 +16,9 @@
 
 package io.github.blaspat.constant;
 
+import org.springframework.stereotype.Component;
 
-public class ElasticsearchConstant {
+@Component
+public final class ElasticsearchConstant {
     public static final int MAX_HITS_SIZE = 10000;
 }

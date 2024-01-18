@@ -33,7 +33,6 @@ import org.elasticsearch.client.NodeSelector;
 import org.elasticsearch.client.RestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import javax.annotation.PreDestroy;
@@ -52,7 +51,7 @@ public class ElasticsearchClientConfig {
     }
 
     @PreDestroy
-    public void destroy() {
+    private void destroy() {
         try {
             log.info("Closing Elasticsearch client");
             if (lowLevelClient != null) {
@@ -64,12 +63,12 @@ public class ElasticsearchClientConfig {
         }
     }
 
-    @Bean
     public ElasticsearchClient getClient() {
         if (null == client) {
             try {
                 return constructClient();
             } catch (Exception e) {
+                ClientStatus.setClientConnected(false);
                 throw new RuntimeException(e);
             }
         };
@@ -86,15 +85,19 @@ public class ElasticsearchClientConfig {
         }
     }
 
-    public ElasticsearchClient constructClient() throws Exception{
-        log.info("Starting Elasticsearch client with scheme {} and host(s) {}", elasticsearchProperties.getScheme(), elasticsearchProperties.getHost());
-        lowLevelClient = buildElasticsearchLowLevelClient();
-        // Create the transport with a Jackson mapper
-        ElasticsearchTransport transport = new RestClientTransport(lowLevelClient, new JacksonJsonpMapper());
-        // And create the API client
-        client = new ElasticsearchClient(transport);
-        ClientStatus.setClientConnected(true);
-        return client;
+    private ElasticsearchClient constructClient() {
+        try {
+            log.info("Starting Elasticsearch client with scheme {} and host(s) {}", elasticsearchProperties.getScheme(), elasticsearchProperties.getHost());
+            lowLevelClient = buildElasticsearchLowLevelClient();
+            // Create the transport with a Jackson mapper
+            ElasticsearchTransport transport = new RestClientTransport(lowLevelClient, new JacksonJsonpMapper());
+            // And create the API client
+            client = new ElasticsearchClient(transport);
+            ClientStatus.setClientConnected(true);
+            return client;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private RestClient buildElasticsearchLowLevelClient() throws Exception {

@@ -7,7 +7,7 @@
     <groupId>io.github.blaspat</groupId>
     <artifactId>elasticsearchclient</artifactId>
     <name>elasticsearch-client</name>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <description>Elasticsearch Custom Client</description>
     <url>https://github.com/blaspat/elasticsearchclient</url>
     <packaging>jar</packaging>
