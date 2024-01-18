@@ -55,8 +55,8 @@ public class ElasticsearchClientConfig implements DisposableBean {
     @Override
     public void destroy() {
         try {
-            log.info("Closing Elasticsearch client");
             if (lowLevelClient != null) {
+                log.info("Closing Elasticsearch client");
                 lowLevelClient.close();
             }
         } catch (final Exception e) {
