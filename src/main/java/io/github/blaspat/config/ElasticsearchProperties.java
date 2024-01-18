@@ -17,11 +17,13 @@
 package io.github.blaspat.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.DeprecatedConfigurationProperty;
 import org.springframework.stereotype.Component;
 
 @Component
 @ConfigurationProperties(prefix = "elasticsearch")
 public class ElasticsearchProperties {
+    private String hosts;
     private String host;
     private String username;
     private String scheme;
@@ -30,10 +32,13 @@ public class ElasticsearchProperties {
     public ElasticsearchProperties() {
     }
 
+    @Deprecated
+    @DeprecatedConfigurationProperty(replacement = "elasticsearch.hosts")
     public String getHost() {
         return host;
     }
 
+    @Deprecated
     public void setHost(String host) {
         this.host = host;
     }
@@ -60,5 +65,14 @@ public class ElasticsearchProperties {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getHosts() {
+        if (null != hosts && !hosts.isEmpty()) return hosts;
+        return host;
+    }
+
+    public void setHosts(String hosts) {
+        this.hosts = hosts;
     }
 }

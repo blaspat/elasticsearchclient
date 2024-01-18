@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-package io.github.blaspat.constant;
+package io.github.blaspat.helper;
 
-import org.springframework.stereotype.Component;
-
-@Component
 public final class ElasticsearchConstant {
     public static final int MAX_HITS_SIZE = 10000;
 }

@@ -1,0 +1,37 @@
+{
+  "properties": [
+    {
+      "name": "elasticsearch.hosts",
+      "type": "java.lang.String",
+      "defaultValue": "localhost:9200",
+      "description": "Elasticsearch hosts and port. Support multiple value, separated by comma."
+    },
+    {
+      "name": "elasticsearch.host",
+      "type": "java.lang.String",
+      "defaultValue": "localhost:9200",
+      "deprecation": {
+        "replacement": "elasticsearch.hosts"
+      },
+      "description": "Elasticsearch hosts and port. Support multiple value, separated by comma."
+    },
+    {
+      "name": "elasticsearch.scheme",
+      "type": "java.lang.String",
+      "defaultValue": "http",
+      "description": "Elasticsearch scheme."
+    },
+    {
+      "name": "elasticsearch.username",
+      "type": "java.lang.String",
+      "defaultValue": "",
+      "description": "Elasticsearch username."
+    },
+    {
+      "name": "elasticsearch.password",
+      "type": "java.lang.String",
+      "defaultValue": "",
+      "description": "Elasticsearch password."
+    }
+  ]
+}

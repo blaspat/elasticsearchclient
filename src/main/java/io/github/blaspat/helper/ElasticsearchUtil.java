@@ -14,19 +14,10 @@
  * limitations under the License.
  */
 
-package io.github.blaspat.global;
+package io.github.blaspat.helper;
 
-
-import java.util.concurrent.atomic.AtomicBoolean;
-
-public class ClientStatus {
-    private static final AtomicBoolean clientConnected = new AtomicBoolean(true);
-
-    public static boolean isClientConnected() {
-        return clientConnected.get();
-    }
-
-    public static void setClientConnected(boolean isConnected) {
-        clientConnected.set(isConnected);
+public final class ElasticsearchUtil {
+    public static int getOffset(int page, int itemsPerPage) {
+        return (page-1)*(itemsPerPage);
     }
 }

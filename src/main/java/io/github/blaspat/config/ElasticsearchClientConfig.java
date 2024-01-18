@@ -28,18 +28,20 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.ssl.SSLContexts;
-import io.github.blaspat.global.ClientStatus;
 import org.elasticsearch.client.NodeSelector;
 import org.elasticsearch.client.RestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.context.annotation.Configuration;
 
-import javax.annotation.PreDestroy;
 import javax.net.ssl.SSLContext;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration
-public class ElasticsearchClientConfig {
+public class ElasticsearchClientConfig implements DisposableBean {
     private final Logger log = LoggerFactory.getLogger(this.getClass());
 
     private final ElasticsearchProperties elasticsearchProperties;
@@ -50,13 +52,12 @@ public class ElasticsearchClientConfig {
         this.elasticsearchProperties = elasticsearchProperties;
     }
 
-    @PreDestroy
-    private void destroy() {
+    @Override
+    public void destroy() {
         try {
             log.info("Closing Elasticsearch client");
             if (lowLevelClient != null) {
                 lowLevelClient.close();
-                ClientStatus.setClientConnected(false);
             }
         } catch (final Exception e) {
             log.error("Error closing Elasticsearch client: ", e);
@@ -66,14 +67,14 @@ public class ElasticsearchClientConfig {
     public ElasticsearchClient getClient() {
         if (null == client) {
             try {
+                destroy();
                 return constructClient();
             } catch (Exception e) {
-                ClientStatus.setClientConnected(false);
                 throw new RuntimeException(e);
             }
-        };
+        }
 
-        if (!ClientStatus.isClientConnected()) {
+        if (!lowLevelClient.isRunning() || !ping()) {
             try {
                 return constructClient();
             } catch (Exception e1) {
@@ -85,33 +86,47 @@ public class ElasticsearchClientConfig {
         }
     }
 
+    private boolean ping() {
+        try {
+            client.ping();
+            return true;
+        } catch (Exception e) {
+            log.error("Failed ping hosts : {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
     private ElasticsearchClient constructClient() {
         try {
-            log.info("Starting Elasticsearch client with scheme {} and host(s) {}", elasticsearchProperties.getScheme(), elasticsearchProperties.getHost());
+            List<String> arr = Arrays.stream(getHostUrlArr()).map(host -> elasticsearchProperties.getScheme() + "://" + host).collect(Collectors.toList());
+            log.info("Starting Elasticsearch client with hosts {}", arr);
             lowLevelClient = buildElasticsearchLowLevelClient();
             // Create the transport with a Jackson mapper
             ElasticsearchTransport transport = new RestClientTransport(lowLevelClient, new JacksonJsonpMapper());
             // And create the API client
             client = new ElasticsearchClient(transport);
-            ClientStatus.setClientConnected(true);
             return client;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
+    private String[] getHostUrlArr() {
+        return elasticsearchProperties.getHosts().split(",");
+    }
+
     private RestClient buildElasticsearchLowLevelClient() throws Exception {
         final SSLContext sslContext = getSSLContext();
 
-        if (null == elasticsearchProperties.getHost()) {
-            throw new RuntimeException("elasticsearch.host not set");
+        if (null == elasticsearchProperties.getHosts()) {
+            throw new RuntimeException("elasticsearch.hosts not set");
         }
 
-        String[] httpHostUrlArr = elasticsearchProperties.getHost().split(",");
+        String[] httpHostUrlArr = getHostUrlArr();
         HttpHost[] httpHostArr = new HttpHost[httpHostUrlArr.length];
         for (int i = 0; i < httpHostUrlArr.length; i++) {
             String host = (httpHostUrlArr[i]).trim();
-            if (null != host && !host.isEmpty()) {
+            if (!host.isEmpty()) {
                 String[] split = host.split(":");
                 String esHost = split[0];
                 int esPort = 9200;
