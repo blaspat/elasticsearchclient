@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-package io.github.blaspat.config;
+package io.github.blaspat.helper;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.DeprecatedConfigurationProperty;
 import org.springframework.stereotype.Component;
+
+import java.util.Objects;
 
 @Component
 @ConfigurationProperties(prefix = "elasticsearch")
@@ -28,6 +30,7 @@ public class ElasticsearchProperties {
     private String username;
     private String scheme;
     private String password;
+    private Connection connection;
 
     public ElasticsearchProperties() {
     }
@@ -72,7 +75,46 @@ public class ElasticsearchProperties {
         return host;
     }
 
+    public Connection getConnection() {
+        if (Objects.isNull(connection)) return new Connection();
+        return connection;
+    }
+
+    public void setConnection(Connection connection) {
+        this.connection = connection;
+    }
+
     public void setHosts(String hosts) {
         this.hosts = hosts;
+    }
+
+    public static class Connection {
+        private Integer connectTimeout = 1000;
+        private Integer socketTimeout = 30000;
+        private Integer initConnections = 1;
+
+        public Integer getConnectTimeout() {
+            return connectTimeout;
+        }
+
+        public void setConnectTimeout(Integer connectTimeout) {
+            this.connectTimeout = connectTimeout;
+        }
+
+        public Integer getSocketTimeout() {
+            return socketTimeout;
+        }
+
+        public void setSocketTimeout(Integer socketTimeout) {
+            this.socketTimeout = socketTimeout;
+        }
+
+        public Integer getInitConnections() {
+            return initConnections;
+        }
+
+        public void setInitConnections(Integer initConnections) {
+            this.initConnections = initConnections;
+        }
     }
 }

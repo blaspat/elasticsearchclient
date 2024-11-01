@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-package io.github.blaspat.config;
+package io.github.blaspat;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.ElasticsearchTransport;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import io.github.blaspat.helper.ElasticsearchProperties;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -32,61 +33,48 @@ import org.elasticsearch.client.NodeSelector;
 import org.elasticsearch.client.RestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.DisposableBean;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
 
 import javax.net.ssl.SSLContext;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Configuration
-public class ElasticsearchClientConfig implements DisposableBean {
+public class ElasticsearchClientConfig {
     private final Logger log = LoggerFactory.getLogger(this.getClass());
 
+    private final AtomicInteger currentIndex = new AtomicInteger(0);
     private final ElasticsearchProperties elasticsearchProperties;
-    private RestClient lowLevelClient;
-    private ElasticsearchClient client;
 
     public ElasticsearchClientConfig(ElasticsearchProperties elasticsearchProperties) {
         this.elasticsearchProperties = elasticsearchProperties;
     }
 
-    @Override
-    public void destroy() {
-        try {
-            if (lowLevelClient != null) {
-                log.info("Closing Elasticsearch client");
-                lowLevelClient.close();
-            }
-        } catch (final Exception e) {
-            log.error("Error closing Elasticsearch client: ", e);
+    List<ElasticsearchClient> clients = new ArrayList<>();
+
+    protected ElasticsearchClient getClient() {
+        int index = currentIndex.getAndUpdate(i -> (i + 1) % clients.size());
+        ElasticsearchClient elasticsearchClient = clients.get(index);
+
+        if (Objects.isNull(elasticsearchClient)) {
+            elasticsearchClient = constructClient(index+1);
+            clients.add(index, elasticsearchClient);
         }
+
+        if (!ping(elasticsearchClient)) {
+            elasticsearchClient = constructClient(index+1);
+            clients.add(index, elasticsearchClient);
+        }
+        return elasticsearchClient;
     }
 
-    public ElasticsearchClient getClient() {
-        if (null == client) {
-            try {
-                destroy();
-                return constructClient();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        if (!lowLevelClient.isRunning() || !ping()) {
-            try {
-                return constructClient();
-            } catch (Exception e1) {
-                log.error("Failed construct Elasticsearch client", e1);
-                throw new RuntimeException(e1);
-            }
-        } else {
-            return client;
-        }
-    }
-
-    private boolean ping() {
+    private boolean ping(ElasticsearchClient client) {
         try {
             client.ping();
             return true;
@@ -96,18 +84,24 @@ public class ElasticsearchClientConfig implements DisposableBean {
         }
     }
 
-    private ElasticsearchClient constructClient() {
+    protected ElasticsearchClient constructClient(int clientNumber) {
         try {
             List<String> arr = Arrays.stream(getHostUrlArr()).map(host -> elasticsearchProperties.getScheme() + "://" + host).collect(Collectors.toList());
-            log.info("Starting Elasticsearch client with hosts {}", arr);
-            lowLevelClient = buildElasticsearchLowLevelClient();
+            log.info("Starting Elasticsearch client {} with hosts {}",clientNumber , arr);
             // Create the transport with a Jackson mapper
-            ElasticsearchTransport transport = new RestClientTransport(lowLevelClient, new JacksonJsonpMapper());
+            ElasticsearchTransport transport = new RestClientTransport(buildElasticsearchLowLevelClient(), new JacksonJsonpMapper());
             // And create the API client
-            client = new ElasticsearchClient(transport);
-            return client;
+            return new ElasticsearchClient(transport);
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    private void init() {
+        log.info("Starting Elasticsearch client with configuration : {} clients, {}ms connect timeout {}ms socket timeout", elasticsearchProperties.getConnection().getInitConnections(), elasticsearchProperties.getConnection().getConnectTimeout(), elasticsearchProperties.getConnection().getSocketTimeout());
+        for (int i = 0; i < elasticsearchProperties.getConnection().getInitConnections(); i++) {
+            clients.add(constructClient(i+1));
         }
     }
 
@@ -144,6 +138,9 @@ public class ElasticsearchClientConfig implements DisposableBean {
         credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(elasticsearchProperties.getUsername(), elasticsearchProperties.getPassword()));
         return RestClient.builder(httpHostArr)
                 .setCompressionEnabled(true)
+                .setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
+                                .setConnectTimeout(elasticsearchProperties.getConnection().getConnectTimeout())
+                                .setSocketTimeout(elasticsearchProperties.getConnection().getSocketTimeout()))
                 .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder
                         .setDefaultCredentialsProvider(credentialsProvider)
                         .setSSLContext(sslContext)

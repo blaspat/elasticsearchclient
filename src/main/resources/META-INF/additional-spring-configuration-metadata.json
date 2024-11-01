@@ -32,6 +32,24 @@
       "type": "java.lang.String",
       "defaultValue": "",
       "description": "Elasticsearch password."
+    },
+    {
+      "name": "elasticsearch.connection.connect-timeout",
+      "type": "java.lang.Integer",
+      "defaultValue": "1000",
+      "description": "Elasticsearch client connect timeout in millis."
+    },
+    {
+      "name": "elasticsearch.connection.socket-timeout",
+      "type": "java.lang.Integer",
+      "defaultValue": "30000",
+      "description": "Elasticsearch client socket timeout in millis."
+    },
+    {
+      "name": "elasticsearch.connection.init-connections",
+      "type": "java.lang.Integer",
+      "defaultValue": "1",
+      "description": "Elasticsearch client max connections."
     }
   ]
 }
