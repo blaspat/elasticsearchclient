@@ -9,6 +9,10 @@ This library avoid "Request execution cancelled" error when calling Elasticsearc
 Support **Java 8 or later** and using [Elasticsearch Java API Client 8.11](https://www.elastic.co/guide/en/elasticsearch/client/java-api-client/8.11/index.html)
 
 ## Updates
+* **1.0.3**
+  * Add feature to setting connection timeout and socket timeout
+  * Add feature to set up initial standby clients to use
+  * Round robin method when selecting client to use
 * **1.0.2**
   * Change how to use client by extending **ElasticsearchSimpleClient** class. Then you can use Elasticsearch client by using _**client()**_ syntax
   * Remove unnecessary class and method
@@ -24,7 +28,7 @@ Support **Java 8 or later** and using [Elasticsearch Java API Client 8.11](https
     <dependency>
         <groupId>io.github.blaspat</groupId>
         <artifactId>elasticsearchclient</artifactId>
-        <version>1.0.2</version>
+        <version>1.0.3</version>
     </dependency>
     <!-- optional, only if your application fails with ClassNotFoundException: jakarta.json.spi.JsonProvider. -->
     <dependency>
@@ -42,12 +46,21 @@ Add the properties below to your application properties file
         hosts: localhost:9200,localhost:9201
         username: elastic-username
         password: elastic-password
+      connection:
+        init-connections: 5
+        connect-timeout: 100
+        socket-timeout: 10000
+
 
 
 * `scheme`: your Elasticsearch cluster scheme. You can choose one scheme, either **http** or **https**, this `scheme` will be applied to all of your hosts
 * `hosts`: your Elasticsearch hosts with port. You can add multiple hosts, separated by comma
 * `username`: your Elasticsearch username
 * `password`: your Elasticsearch password
+* `connection`: your Elasticsearch password
+* * `init-connections`: initial client connections
+* * `connect-timeout`: connect timeout setting in millis
+* * `socket-timeout`: socket timeout setting in millis
 
 ## Usage
 [Elasticsearch Demo Spring Boot](https://github.com/blaspat/elasticsearch-demo)
