@@ -33,6 +33,7 @@ import org.elasticsearch.client.NodeSelector;
 import org.elasticsearch.client.RestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.event.EventListener;
@@ -48,6 +49,11 @@ import java.util.stream.Collectors;
 @Configuration
 public class ElasticsearchClientConfig {
     private final Logger log = LoggerFactory.getLogger(this.getClass());
+
+    @Value("${version}")
+    private String projectVersion;
+    @Value("${artifactId}")
+    private String projectId;
 
     private final AtomicInteger currentIndex = new AtomicInteger(0);
     private final ElasticsearchProperties elasticsearchProperties;
@@ -99,6 +105,7 @@ public class ElasticsearchClientConfig {
 
     @EventListener(ApplicationReadyEvent.class)
     private void init() {
+        log.info("Running {} version {}", projectId, projectVersion);
         log.info("Starting Elasticsearch client with configuration : {} clients, {}ms connect timeout {}ms socket timeout", elasticsearchProperties.getConnection().getInitConnections(), elasticsearchProperties.getConnection().getConnectTimeout(), elasticsearchProperties.getConnection().getSocketTimeout());
         for (int i = 0; i < elasticsearchProperties.getConnection().getInitConnections(); i++) {
             clients.add(constructClient(i+1));
