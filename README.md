@@ -66,7 +66,9 @@ Add the properties below to your application properties file
 [Elasticsearch Demo Spring Boot](https://github.com/blaspat/elasticsearch-demo)
 
 ## Notes
-* This library will skip Elasticsearch certificate verification
+* ⚠️ **SSL certificate verification is disabled** — this library trusts all certificates. Do NOT use in production without proper certificate management.
+* The library uses a thread-safe client pool with configurable connection and socket timeouts.
+* Clients are properly closed on application shutdown via `@PreDestroy`.
 
 ## License
 

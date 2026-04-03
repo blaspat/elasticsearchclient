@@ -26,6 +26,6 @@ public class ElasticsearchSimpleClient {
     private ElasticsearchClientConfig simpleClient;
 
     public ElasticsearchClient client() {
-        return simpleClient.getClient();
+        return simpleClient.client();
     }
 }
