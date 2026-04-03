@@ -13,7 +13,7 @@
 
     <groupId>io.github.blaspat</groupId>
     <artifactId>elasticsearchclient</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.4</version>
     <packaging>jar</packaging>
     <name>elasticsearchclient</name>
     <description>A resilient Elasticsearch client for Java applications with connection pooling and fault tolerance.</description>
