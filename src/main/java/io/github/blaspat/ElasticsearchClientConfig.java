@@ -33,15 +33,16 @@ import org.elasticsearch.client.NodeSelector;
 import org.elasticsearch.client.RestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.event.EventListener;
 
+import javax.annotation.PreDestroy;
 import javax.net.ssl.SSLContext;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -52,65 +53,96 @@ public class ElasticsearchClientConfig {
     private final AtomicInteger currentIndex = new AtomicInteger(0);
     private final ElasticsearchProperties elasticsearchProperties;
 
+    // Thread-safe client pool
+    private final Map<Integer, ElasticsearchClientHolder> clients = new ConcurrentHashMap<>();
+    private volatile boolean initialized = false;
+
+    @Autowired
     public ElasticsearchClientConfig(ElasticsearchProperties elasticsearchProperties) {
         this.elasticsearchProperties = elasticsearchProperties;
     }
 
-    List<ElasticsearchClient> clients = new ArrayList<>();
-
-    protected ElasticsearchClient getClient() {
-        int index = currentIndex.getAndUpdate(i -> (i + 1) % clients.size());
-        ElasticsearchClient elasticsearchClient = clients.get(index);
-
-        if (Objects.isNull(elasticsearchClient)) {
-            elasticsearchClient = constructClient(index+1);
-            clients.add(index, elasticsearchClient);
+    public ElasticsearchClient client() {
+        if (!initialized) {
+            synchronized (this) {
+                if (!initialized) {
+                    init();
+                    initialized = true;
+                }
+            }
         }
-
-        if (!ping(elasticsearchClient)) {
-            elasticsearchClient = constructClient(index+1);
-            clients.add(index, elasticsearchClient);
+        int size = clients.size();
+        if (size == 0) {
+            throw new IllegalStateException("No Elasticsearch clients available");
         }
-        return elasticsearchClient;
+        int index = currentIndex.getAndUpdate(i -> (i + 1) % size);
+        ElasticsearchClientHolder holder = clients.get(index);
+        if (Objects.isNull(holder)) {
+            holder = createClient(index);
+            clients.put(index, holder);
+        }
+        return holder.client();
     }
 
     private boolean ping(ElasticsearchClient client) {
         try {
-            client.ping();
-            return true;
+            return client.ping().value();
         } catch (Exception e) {
-            log.error("Failed ping hosts : {}", e.getMessage(), e);
+            log.warn("Failed to ping Elasticsearch client: {}", e.getMessage());
             return false;
         }
     }
 
-    protected ElasticsearchClient constructClient(int clientNumber) {
-        try {
-            List<String> arr = Arrays.stream(getHostUrlArr()).map(host -> elasticsearchProperties.getScheme() + "://" + host).collect(Collectors.toList());
-            log.info("Starting Elasticsearch client {} with hosts {}",clientNumber , arr);
-            // Create the transport with a Jackson mapper
-            ElasticsearchTransport transport = new RestClientTransport(buildElasticsearchLowLevelClient(), new JacksonJsonpMapper());
-            // And create the API client
-            return new ElasticsearchClient(transport);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    private ElasticsearchClientHolder createClient(int clientNumber) {
+        List<String> hostUrls = Arrays.stream(getHostUrlArr())
+                .map(host -> elasticsearchProperties.getScheme() + "://" + host)
+                .collect(Collectors.toList());
+        log.info("Creating Elasticsearch client {} with hosts {}", clientNumber, hostUrls);
+
+        RestClient restClient = buildRestClient();
+        ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+        ElasticsearchClient esClient = new ElasticsearchClient(transport);
+        return new ElasticsearchClientHolder(esClient, restClient);
+    }
+
+    private void init() {
+        log.info("Initializing Elasticsearch client pool: {} initial connections, {}ms connect timeout, {}ms socket timeout",
+                elasticsearchProperties.getConnection().getInitConnections(),
+                elasticsearchProperties.getConnection().getConnectTimeout(),
+                elasticsearchProperties.getConnection().getSocketTimeout());
+
+        for (int i = 0; i < elasticsearchProperties.getConnection().getInitConnections(); i++) {
+            clients.put(i, createClient(i));
         }
     }
 
-    @EventListener(ApplicationReadyEvent.class)
-    private void init() {
-        log.info("Starting Elasticsearch client with configuration : {} clients, {}ms connect timeout {}ms socket timeout", elasticsearchProperties.getConnection().getInitConnections(), elasticsearchProperties.getConnection().getConnectTimeout(), elasticsearchProperties.getConnection().getSocketTimeout());
-        for (int i = 0; i < elasticsearchProperties.getConnection().getInitConnections(); i++) {
-            clients.add(constructClient(i+1));
+    @PreDestroy
+    public void shutdown() {
+        log.info("Shutting down Elasticsearch client pool");
+        for (Map.Entry<Integer, ElasticsearchClientHolder> entry : clients.entrySet()) {
+            try {
+                entry.getValue().close();
+                log.debug("Closed Elasticsearch client {}", entry.getKey());
+            } catch (Exception e) {
+                log.warn("Failed to close Elasticsearch client {}: {}", entry.getKey(), e.getMessage());
+            }
         }
+        clients.clear();
     }
 
     private String[] getHostUrlArr() {
         return elasticsearchProperties.getHosts().split(",");
     }
 
-    private RestClient buildElasticsearchLowLevelClient() throws Exception {
-        final SSLContext sslContext = getSSLContext();
+    private RestClient buildRestClient() {
+        final SSLContext sslContext;
+        try {
+            SSLContextBuilder builder = SSLContexts.custom();
+            builder.loadTrustMaterial(null, (x509Certificates, s) -> true);
+            sslContext = builder.build();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to build SSL context", e);
+        }
 
         if (null == elasticsearchProperties.getHosts()) {
             throw new RuntimeException("elasticsearch.hosts not set");
@@ -119,41 +151,43 @@ public class ElasticsearchClientConfig {
         String[] httpHostUrlArr = getHostUrlArr();
         HttpHost[] httpHostArr = new HttpHost[httpHostUrlArr.length];
         for (int i = 0; i < httpHostUrlArr.length; i++) {
-            String host = (httpHostUrlArr[i]).trim();
+            String host = httpHostUrlArr[i].trim();
             if (!host.isEmpty()) {
                 String[] split = host.split(":");
                 String esHost = split[0];
                 int esPort = 9200;
                 if (split.length == 1) {
-                    log.warn("No Elasticsearch port found for host {}, automatically use default port 9200", esHost);
+                    log.warn("No Elasticsearch port found for host {}, automatically using default port 9200", esHost);
                 } else {
                     esPort = Integer.parseInt(split[1]);
                 }
-
                 httpHostArr[i] = new HttpHost(esHost, esPort, elasticsearchProperties.getScheme());
             }
         }
 
         final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(elasticsearchProperties.getUsername(), elasticsearchProperties.getPassword()));
+        credentialsProvider.setCredentials(AuthScope.ANY,
+                new UsernamePasswordCredentials(elasticsearchProperties.getUsername(), elasticsearchProperties.getPassword()));
+
+        int connectTimeout = elasticsearchProperties.getConnection().getConnectTimeout();
+        int socketTimeout = elasticsearchProperties.getConnection().getSocketTimeout();
+
         return RestClient.builder(httpHostArr)
                 .setCompressionEnabled(true)
                 .setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
-                                .setConnectTimeout(elasticsearchProperties.getConnection().getConnectTimeout())
-                                .setSocketTimeout(elasticsearchProperties.getConnection().getSocketTimeout()))
+                        .setConnectTimeout(connectTimeout)
+                        .setSocketTimeout(socketTimeout)
+                        .setConnectionRequestTimeout(connectTimeout))
                 .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder
                         .setDefaultCredentialsProvider(credentialsProvider)
                         .setSSLContext(sslContext)
                         .setSSLHostnameVerifier((hostname, session) -> true)
-                        .setDefaultIOReactorConfig(IOReactorConfig.custom().setSoKeepAlive(true).build())
-                )
+                        .setDefaultIOReactorConfig(IOReactorConfig.custom()
+                                .setSoKeepAlive(true)
+                                .setConnectTimeout(connectTimeout)
+                                .setSoTimeout(socketTimeout)
+                                .build()))
                 .setNodeSelector(NodeSelector.SKIP_DEDICATED_MASTERS)
                 .build();
-    }
-
-    private SSLContext getSSLContext() throws Exception {
-        SSLContextBuilder builder = SSLContexts.custom();
-        builder.loadTrustMaterial(null, (x509Certificates, s) -> true);
-        return builder.build();
     }
 }
