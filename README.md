@@ -1,77 +1,54 @@
-Elasticsearch Simple Java Client
-===========================
+# Resilient Elasticsearch Client
 
-## Overview
-This library provide easier way to config Elasticsearch Java API Client.  
-It features automatically connection checking with auto re-create connection if connection is closed due to some error.  
-This library avoid "Request execution cancelled" error when calling Elasticsearch client.
+A resilient Elasticsearch client for Java applications with connection pooling, thread-safe client management, and configurable timeouts.
 
-Support **Java 8 or later** and using [Elasticsearch Java API Client 8.11](https://www.elastic.co/guide/en/elasticsearch/client/java-api-client/8.11/index.html)
-
-## Updates
-* **1.0.3**
-  * Add feature to setting connection timeout and socket timeout
-  * Add feature to set up initial standby clients to use
-  * Round robin method when selecting client to use
-* **1.0.2**
-  * Change how to use client by extending **ElasticsearchSimpleClient** class. Then you can use Elasticsearch client by using _**client()**_ syntax
-  * Remove unnecessary class and method
-* **1.0.1**
-  * **DO NOT USE THIS VERSION, CONTAINS ISSUE**
-* **1.0.0**
-  * Initial release
-  * Using [Elasticsearch Java API Client 8.11](https://www.elastic.co/guide/en/elasticsearch/client/java-api-client/8.11/index.html)
-
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.blaspat/elasticsearchclient?color=blue)](https://search.maven.org/artifact/io.github.blaspat/elasticsearchclient)
 
 ## Maven
 
-    <dependency>
-        <groupId>io.github.blaspat</groupId>
-        <artifactId>elasticsearchclient</artifactId>
-        <version>1.0.3</version>
-    </dependency>
-    <!-- optional, only if your application fails with ClassNotFoundException: jakarta.json.spi.JsonProvider. -->
-    <dependency>
-      <groupId>jakarta.json</groupId>
-      <artifactId>jakarta.json-api</artifactId>
-      <version>2.0.1</version>
-    </dependency>
+```xml
+<dependency>
+    <groupId>io.github.blaspat</groupId>
+    <artifactId>elasticsearchclient</artifactId>
+    <version>1.0.4</version>
+</dependency>
+```
 
+## Features
+
+- **Thread-safe client pool** — Uses `ConcurrentHashMap` for safe concurrent access
+- **Connection pooling** — Configurable number of initial connections
+- **Round-robin load balancing** — Clients are selected using atomic round-robin
+- **Configurable timeouts** — Connection and socket timeouts via properties
+- **Graceful shutdown** — All clients are properly closed via `@PreDestroy`
 
 ## Configuration
-Add the properties below to your application properties file
 
-    elasticsearch:
-        scheme: http
-        hosts: localhost:9200,localhost:9201
-        username: elastic-username
-        password: elastic-password
-      connection:
-        init-connections: 5
-        connect-timeout: 100
-        socket-timeout: 10000
-
-
-
-* `scheme`: your Elasticsearch cluster scheme. You can choose one scheme, either **http** or **https**, this `scheme` will be applied to all of your hosts
-* `hosts`: your Elasticsearch hosts with port. You can add multiple hosts, separated by comma
-* `username`: your Elasticsearch username
-* `password`: your Elasticsearch password
-* `connection`: your Elasticsearch password
-* * `init-connections`: initial client connections
-* * `connect-timeout`: connect timeout setting in millis
-* * `socket-timeout`: socket timeout setting in millis
+```yaml
+elasticsearch:
+  hosts: localhost:9200
+  scheme: https
+  username: elastic
+  password: password
+  connection:
+    initConnections: 3
+    connectTimeout: 5000
+    socketTimeout: 30000
+```
 
 ## Usage
-[Elasticsearch Demo Spring Boot](https://github.com/blaspat/elasticsearch-demo)
+
+```java
+@Autowired
+private ElasticsearchClientConfig elasticsearchClientConfig;
+
+public void search() {
+    ElasticsearchClient client = elasticsearchClientConfig.client();
+    // use the client
+}
+```
 
 ## Notes
-* ⚠️ **SSL certificate verification is disabled** — this library trusts all certificates. Do NOT use in production without proper certificate management.
-* The library uses a thread-safe client pool with configurable connection and socket timeouts.
-* Clients are properly closed on application shutdown via `@PreDestroy`.
 
-## License
-
-This project is licensed under the [Apache License Version 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).
-
-The copyright owner is Blasius Patrick.
+- ⚠️ **SSL certificate verification is disabled** — this library trusts all certificates. Do NOT use in production without proper certificate management.
+- Clients are properly closed on application shutdown via `@PreDestroy`.
